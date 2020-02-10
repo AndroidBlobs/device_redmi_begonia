@@ -84,16 +84,6 @@ on charger
     restorecon_recursive /mnt/vendor/nvcfg
     write /sys/devices/platform/battery_meter/FG_daemon_log_level 7
     write /sys/bus/platform/devices/battery/FG_daemon_log_level 7
-    # Permissions for System Server and daemons.
-    chown system system /sys/power/autosleep
-    chown system system /sys/power/state
-    chown system system /sys/power/wakeup_count
-    chown radio wakelock /sys/power/wake_lock
-    chown radio wakelock /sys/power/wake_unlock
-    chmod 0660 /sys/power/state
-    chmod 0660 /sys/power/wake_lock
-    chmod 0660 /sys/power/wake_unlock
-    chmod 0660 /sys/power/wakeup_count
     write /sys/power/pm_async 0
     write /sys/power/pm_freeze_timeout 2000
     start fuelgauged
@@ -106,17 +96,45 @@ on charger
     start servicemanager
     start hwservicemanager
     start light-hal-2-0
-    start health-hal-2-0
 
-    #Charge logger
-    mkdir /data/vendor/charge_logger 0771 system system
-    start charge_logger
+    # follow boot_completed setting
+    write /sys/devices/system/cpu/eas/enable 2
+    write /proc/cpufreq/cpufreq_sched_disable 0
+    chown system system /dev/stune/foreground/schedtune.prefer_idle
+    chown system system /dev/stune/top-app/schedtune.prefer_idle
+    chown system system /dev/stune/rt/schedtune.prefer_idle
+    write /dev/stune/foreground/schedtune.prefer_idle 0
+    write /dev/stune/top-app/schedtune.prefer_idle 0
+    write /dev/stune/rt/schedtune.prefer_idle 0
+    write /proc/sys/kernel/sched_migration_cost_ns 200000
+
+    # restore perf. parameters
+    write /proc/perfmgr/boost_ctrl/eas_ctrl/boot_boost "0 0"
+    write /proc/perfmgr/boost_ctrl/eas_ctrl/boot_boost "1 0"
+    write /proc/perfmgr/boost_ctrl/eas_ctrl/boot_boost "2 0"
+    write /proc/perfmgr/boost_ctrl/eas_ctrl/boot_boost "3 0"
+    write /proc/sys/kernel/sched_stune_task_threshold -1
+    write /proc/perfmgr/boost_ctrl/cpu_ctrl/boot_freq "-1 -1 -1 -1"
+    write /sys/devices/platform/10012000.dvfsrc/helio-dvfsrc/dvfsrc_req_ddr_opp -1
+
+    # Reduce the CPU DVFS for power reduction.
+    write /proc/ppm/policy/ut_fix_freq_idx "15 15"
+
+    # CPU Hotplug to core0 and core1 for power reduction.
+    write /proc/hps/enabled 0
+    write /sys/devices/system/cpu/cpu0/online 1
+    write /sys/devices/system/cpu/cpu7/online 0
+    write /sys/devices/system/cpu/cpu6/online 0
+    write /sys/devices/system/cpu/cpu5/online 0
+    write /sys/devices/system/cpu/cpu4/online 0
+    write /sys/devices/system/cpu/cpu3/online 0
+    write /sys/devices/system/cpu/cpu2/online 0
+    write /sys/devices/system/cpu/cpu1/online 1
+    write /sys/devices/system/cpu/cpu0/online 1
 
 on fs
     write /proc/bootprof "INIT:Mount_START"
     write /sys/kernel/debug/tracing/trace_marker "B|1|Mount"
-    wait_for_prop hwservicemanager.ready "true"
-    start vendor.boot-hal-1-0
     mount_all /vendor/etc/fstab.mt6785
     exec /system/bin/tune2fs -O has_journal -u 10010 -r 4096 /dev/block/platform/bootdevice/by-name/userdata
     write /sys/kernel/debug/tracing/trace_marker "E"
@@ -124,12 +142,7 @@ on fs
     write /sys/block/zram0/comp_algorithm lz4
     write /proc/sys/vm/page-cluster 0
     write /proc/sys/vm/swappiness 100
-    write /sys/kernel/mm/swap/vma_ra_enabled false
     swapon_all /vendor/fstab.enableswap
-    mkdir /mnt/vendor/persist/stability 0755 system system
-    mkdir /mnt/vendor/persist/misys 0755 system system
-    #Audio-add
-    chmod 0771 /mnt/vendor/persist/audio
 
 on fs
 
@@ -181,12 +194,6 @@ on post-fs
     symlink /dev/block/mmcblk0boot0 /dev/block/platform/bootdevice/by-name/preloader_a
     symlink /dev/block/mmcblk0boot1 /dev/block/platform/bootdevice/by-name/preloader_b
 
-    # Support A/B feature for combo emmc and ufs OTA update
-    symlink /dev/block/platform/bootdevice/by-name/preloader_a /dev/block/platform/bootdevice/by-name/preloader_emmc_a
-    symlink /dev/block/platform/bootdevice/by-name/preloader_b /dev/block/platform/bootdevice/by-name/preloader_emmc_b
-    symlink /dev/block/platform/bootdevice/by-name/preloader_a /dev/block/platform/bootdevice/by-name/preloader_ufs_a
-    symlink /dev/block/platform/bootdevice/by-name/preloader_b /dev/block/platform/bootdevice/by-name/preloader_ufs_b
-
 on post-fs-data
     write /proc/bootprof "INIT:post-fs-data"
 
@@ -199,10 +206,6 @@ on post-fs-data
     write /sys/block/sdc/queue/nr_requests 256
     write /sys/block/dm-0/queue/read_ahead_kb 2048
     write /sys/block/dm-1/queue/read_ahead_kb 2048
-    write /sys/block/dm-2/queue/read_ahead_kb 2048
-    write /sys/block/dm-3/queue/read_ahead_kb 2048
-    write /sys/block/dm-4/queue/read_ahead_kb 2048
-    write /sys/block/dm-5/queue/read_ahead_kb 2048
 
     chown system system /mnt/vendor/nvcfg
     chmod 0771 /mnt/vendor/nvcfg
@@ -256,6 +259,10 @@ on post-fs-data
     chown root system /data/vendor/camera
     chmod 0771 /data/vendor/camera
 
+    mkdir /data/vendor/camera
+    chown root system /data/vendor/camera
+    chmod 0771 /data/vendor/camera
+
     #Create flicker mount point
     mkdir /data/vendor/flicker
     chown root system /data/vendor/flicker
@@ -264,18 +271,29 @@ on post-fs-data
     # Set SELinux security contexts on upgrade or policy update.
     restorecon_recursive /mnt/vendor/nvdata
 
+    chmod 0660 /data/misc/wifi/p2p_supplicant.conf
+
     #give system access to rfkill device node
     chmod 0660 /dev/rfkill
 
     # create for muxd pts device node , to operate without root
     mkdir /dev/radio 0770 radio radio
 
+    mkdir /data/drm/wv 0770 drm system
+
     chmod 0660 /dev/spm
     chown system system /dev/spm
 
 # GPS
+    mkdir /data/gps_mnl 0771 gps system
+    mkdir /data/misc/gps 0770 gps system
+    mkdir /data/mpe_mnl 0771 gps system
+    chown gps system /data/mpe_mnl
     chmod 0775 /vendor/xbin/MPED
     chmod 0666 /dev/gps_emi
+
+    # NFC
+    mkdir /data/nfc_socket 0771 nfc radio
 
 # -----------------------
 # Add by MTK
@@ -301,7 +319,16 @@ on post-fs-data
     chmod 0440 /dev/sspm
     chown root system /dev/sspm
 
+    # dhcp server
+    mkdir /data/misc/dhcp 0770 dhcp wifi
+    chown dhcp wifi /data/misc/dhcp
+
+    # dhcpv6 server
+    mkdir /data/misc/wide-dhcpv6 0770 dhcp wifi
+    chown dhcp wifi /data/misc/wide-dhcpv6
+
     # radvd
+    mkdir /data/misc/radvd 0770 system system
     chmod 444 /etc/radvd/radvd.conf
 
     # Mali 3D GPU driver
@@ -328,11 +355,11 @@ on post-fs-data
 
     chmod 0666 /dev/pmem_multimedia
 
-    #palm_sensor
-    chown system system /sys/class/touch/touch_dev/palm_sensor
-
     # set ptmx group to non-root
     chown root radio /dev/ptmx
+
+    # RTC
+    mkdir /data/misc/rtc 0770 system system
 
     # M4U
     #insmod /vendor/lib/modules/m4u.ko
@@ -351,7 +378,7 @@ on post-fs-data
     chown system system /dev/mtk_cmdq
 
     # MDP SYNC
-    chmod 0644 /dev/mdp_sync
+    chmod 0660 /dev/mdp_sync
     chown system system /dev/mdp_sync
 
     #OFFLOAD SERVICE
@@ -388,8 +415,6 @@ on post-fs-data
     chown media system /dev/video0
     chmod 0660 /dev/video1
     chown media system /dev/video1
-    mkdir /data/vendor/vcodec 0770 media system
-    mkdir /data/vendor/vcodec/log 0770 media system
 
     #MJC
     #insmod /vendor/lib/modules/mjc_kernel_driver.ko
@@ -411,6 +436,10 @@ on post-fs-data
     mkdir /data/vendor/meta 0777 root root
     mkdir /data/vendor/meta/mddb 0777 root root
 
+    mkdir /data/amit/ 0770 system system
+    mkdir /data/misc/akmd 0770 system system
+    mkdir /data/misc/s62x 0771 compass compass
+    mkdir /data/acdapi/ 0770 system system
     chmod 0660 /data/misc/acdapi/calib.dat
     chmod 0660 /data/misc/acdapi/param.dat
     chmod 0660 /data/misc/acdapi/sensors.dat
@@ -419,6 +448,7 @@ on post-fs-data
     chown system /sys/devices/platform/msensor/driver/cpsreptz
     chown system /sys/devices/platform/gsensor/driver/cpsopmode
     chown system /sys/devices/platform/gsensor/driver/cpsrange
+    mkdir	/data/mcube 0664 system system
 
     chown system /sys/class/input/input1/enable
     chown system /sys/class/input/input1/delay
@@ -504,21 +534,33 @@ on post-fs-data
     #EM eint
     chown root diag /sys/bus/platform/drivers/eint/current_eint
 
+    # for ppp options file
+    mkdir /data/misc/ppp 0770 bluetooth net_bt
+
+    # for libipsec_ims
+    mkdir /data/misc/setkey 0770 root system
+    restorecon /data/misc/setkey
+
     # Android SEC related device nodes
     chmod 0660 /dev/sec
     chown root system /dev/sec
 
     # FM Radio device node
+    mknod /dev/fm     c 193 0;
     chmod 0660 /dev/fm
     chown media media /dev/fm
 
     # device apc settings
 
     # device info /proc interface
+    mknod /dev/devmap c 196 0;
     chmod 0440 /dev/devmap
     chown root system /dev/devmap
 
     # bluetooth
+    mkdir /data/@btmtk 0770 bluetooth net_bt
+    chown bluetooth bluetooth /data/@btmtk/host_cache
+    chown bluetooth bluetooth /data/@btmtk/dev_cache
     chown bluetooth bluetooth /dev/hid-keyboard
     chmod 0660 /dev/hid-keyboard
     #Use uinput's default permission
@@ -575,9 +617,7 @@ on post-fs-data
     chmod 0660 /dev/MAIN2AF
     chmod 0660 /dev/SUBAF
     chmod 0660 /dev/SUB2AF
-
-    #xiaomi algoup
-    chmod 0664 /dev/vpu
+    chmod 0660 /dev/vpu
 
     chown system camera /dev/camera-sysram
     chown system camera /dev/camera-isp
@@ -694,36 +734,8 @@ on post-fs-data
     write /sys/power/pm_async 0
     write /sys/power/pm_freeze_timeout 2000
 
-    #Charge logger
-    mkdir /data/vendor/charge_logger 0771 system system
-
-    # RTC
-    chmod 660 /dev/alarm
-    chown root system /dev/alarm
-
-    #EM of MT6360
-    chmod 0664 sys/kernel/debug/rt-regmap/mt6360_pmu.5-0034/data
-    chmod 0664 sys/kernel/debug/rt-regmap/mt6360_pmic.5-001a/data
-    chmod 0664 sys/kernel/debug/rt-regmap/mt6360_ldo.5-0064/data
-    chmod 0664 sys/kernel/debug/rt-regmap/mt6360-4e/data
-    chmod 0664 sys/kernel/debug/rt-regmap/mt6360_pmu.5-0034/reg_addr
-    chmod 0664 sys/kernel/debug/rt-regmap/mt6360_pmic.5-001a/reg_addr
-    chmod 0664 sys/kernel/debug/rt-regmap/mt6360_ldo.5-0064/reg_addr
-    chmod 0664 sys/kernel/debug/rt-regmap/mt6360-4e/reg_addr
-
 # End of adding by MTK drivers
 # -----------------------
-
-# add charge_logger service for dump charge message
-service charge_logger /vendor/bin/charge_logger
-    class last_start
-    user system
-    group system system wakelock
-    disabled
-    oneshot
-
-on property:sys.boot_completed=1
-    start charge_logger
 
 on boot
     write /proc/bootprof "INIT:boot"
@@ -741,7 +753,6 @@ on boot
     chown system system /sys/class/leds/blue/brightness
     chmod 0666 /sys/devices/platform/mtkfb/disp_param
     chown system system /sys/devices/platform/mtkfb/disp_param
-    chown system system /sys/class/thermal/thermal_zone3/temp
 
     chown system system /sys/devices/system/cpu/cpufreq/hotplug/cpu_num_base
     chmod 0660 /sys/devices/system/cpu/cpufreq/hotplug/cpu_num_base
@@ -926,11 +937,13 @@ on property:vold.decrypt=trigger_restart_min_framework
     write /proc/bootprof "INIT:vold.decrypt=trigger_restart_min_framework"
     start nvram_daemon
     start msensord
+    start permission_check
 
 on property:vold.decrypt=trigger_restart_framework
     write /proc/bootprof "INIT:vold.decrypt=trigger_restart_framework"
     start nvram_daemon
     start msensord
+    start permission_check
 
 on property:vold.decrypt=trigger_shutdown_framework
     write /proc/bootprof "INIT:vold.decrypt=trigger_shutdown_framework"
@@ -941,14 +954,10 @@ on property:vold.decrypt=trigger_shutdown_framework
 on early-init && property:ro.boot.boot_trace=1
     setprop debug.atrace.tags.enableflags 0x1fffffe
 
-# Stop bootprof
-on property:sys.boot_completed=1
-    write /proc/bootprof "0"
-    write /proc/mtprintk ${persist.vendor.uartconsole.enable}
-
 ## mtk printk uart controller
 on property:persist.vendor.uartconsole.enable=*
     write /proc/mtprintk ${persist.vendor.uartconsole.enable}
+
 
 # bugreport is triggered by holding down volume down, volume up and power
 service bugreport /system/bin/dumpstate -d -p -B -z \
@@ -968,10 +977,6 @@ on property:sys.boot_completed=1
     write /sys/block/sdc/queue/nr_requests 128
     write /sys/block/dm-0/queue/read_ahead_kb 128
     write /sys/block/dm-1/queue/read_ahead_kb 128
-    write /sys/block/dm-2/queue/read_ahead_kb 128
-    write /sys/block/dm-3/queue/read_ahead_kb 128
-    write /sys/block/dm-4/queue/read_ahead_kb 128
-    write /sys/block/dm-5/queue/read_ahead_kb 128
 
 
 # start EAS+
@@ -999,6 +1004,44 @@ on property:sys.boot_completed=1
     # switch to sched-dvfs
     write /sys/devices/system/cpu/cpufreq/policy0/scaling_governor "schedplus"
     write /sys/devices/system/cpu/cpufreq/policy4/scaling_governor "schedplus"
+
+    # stop bootprof
+    write /proc/bootprof 0
+    write /proc/mtprintk ${persist.vendor.uartconsole.enable}
+
+# write proc for test sim
+    on property:gsm.sim.ril.testsim=0
+    write /proc/sys/net/netfilter/nf_conntrack_tcp_no_window_check 0
+    write /proc/sys/net/ipv4/tcp_rto_min 200
+    write /proc/sys/net/ipv4/tcp_early_retrans 3
+    on property:gsm.sim.ril.testsim=1
+    write /proc/sys/net/netfilter/nf_conntrack_tcp_no_window_check 1
+    write /proc/sys/net/ipv4/tcp_rto_min 400
+    write /proc/sys/net/ipv4/tcp_early_retrans 0
+    on property:gsm.sim.ril.testsim.2=0
+    write /proc/sys/net/netfilter/nf_conntrack_tcp_no_window_check 0
+    write /proc/sys/net/ipv4/tcp_rto_min 200
+    write /proc/sys/net/ipv4/tcp_early_retrans 3
+    on property:gsm.sim.ril.testsim.2=1
+    write /proc/sys/net/netfilter/nf_conntrack_tcp_no_window_check 1
+    write /proc/sys/net/ipv4/tcp_rto_min 400
+    write /proc/sys/net/ipv4/tcp_early_retrans 0
+    on property:gsm.sim.ril.testsim.3=0
+    write /proc/sys/net/netfilter/nf_conntrack_tcp_no_window_check 0
+    write /proc/sys/net/ipv4/tcp_rto_min 200
+    write /proc/sys/net/ipv4/tcp_early_retrans 3
+    on property:gsm.sim.ril.testsim.3=1
+    write /proc/sys/net/netfilter/nf_conntrack_tcp_no_window_check 1
+    write /proc/sys/net/ipv4/tcp_rto_min 400
+    write /proc/sys/net/ipv4/tcp_early_retrans 0
+    on property:gsm.sim.ril.testsim.4=0
+    write /proc/sys/net/netfilter/nf_conntrack_tcp_no_window_check 0
+    write /proc/sys/net/ipv4/tcp_rto_min 200
+    write /proc/sys/net/ipv4/tcp_early_retrans 3
+    on property:gsm.sim.ril.testsim.4=1
+    write /proc/sys/net/netfilter/nf_conntrack_tcp_no_window_check 1
+    write /proc/sys/net/ipv4/tcp_rto_min 400
+    write /proc/sys/net/ipv4/tcp_early_retrans 0
 
 #service dpfd /vendor/bin/dpfd
 #	user root
@@ -1052,6 +1095,25 @@ on property:persist.vendor.mediatek.fg.log.enable=1
     write /sys/bus/platform/devices/battery/FG_daemon_log_level 7
     write /proc/sys/kernel/printk 8
 
+
+
+
+on boot
+
+#set the property of persiste.radio.reset_on_switch
+setprop persist.radio.reset_on_switch false
+#end
+
+#set the property of rild.mark_switchuser
+setprop rild.mark_switchuser 0
+#end
+
+# MBIMD Service
+service mbimd /vendor/bin/mbimd debug
+    disabled
+    oneshot
+
+
 # add loghidl client
 service loghidlsysservice /system/bin/loghidlsysservice
     class main
@@ -1062,7 +1124,7 @@ service loghidlsysservice /system/bin/loghidlsysservice
 # add meta_tst for ATM
 service meta_tst /vendor/bin/meta_tst
     class main
-    user system
+    user radio gps system wifi
     group radio gps system wifi audio bluetooth media
     disabled
     oneshot
@@ -1073,27 +1135,19 @@ on property:sys.boot_completed=1 && property:ro.boot.atm=enable
     start loghidlvendorservice
     start loghidlsysservice
 
-on property:sys.boot_completed=1 && property:persist.atm_enabled=true
-    setprop vendor.usb.atm 1
-    start meta_tst
-    start loghidlvendorservice
-    start loghidlsysservice
-
-on property:sys.boot_completed=1 && property:persist.atm_enabled=false
-    setprop vendor.usb.atm 0
-    stop meta_tst
-    stop loghidlvendorservice
-    stop loghidlsysservice
-
 # reset mdmode when modem crash happens in ATM
 on property:vendor.mtk.md1.status=reset
     setprop persist.vendor.atm.mdmode normal
 
-# FPSGO FBT Game
-on boot
-    insmod /vendor/lib/modules/fpsgo.ko
+on property:service.mbim.enable=0
+    stop mbimd
 
+on property:service.mbim.enable=1
+    start mbimd
+
+# FPSGO FBT Game
 on init
+    insmod /vendor/lib/modules/fpsgo.ko
     symlink /dev/block/platform/bootdevice /dev/block/bootdevice
 
 # VSIM service (vendor OSI)
@@ -1104,9 +1158,3 @@ service osi /system/bin/osi
     oneshot
     #seclabel u:r:osi:s0
 
-service charger system/bin/charger
-    class charger
-    critical
-    #seclabel u:r:charger:s0
-    group system graphics
-    seclabel u:r:healthd:s0

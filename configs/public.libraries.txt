@@ -24,5 +24,3 @@ libVDSuperPhotoAPI.so
 libalCFR.so
 libmibokeh_mt6785.so
 libalhLDC.so
-libapu-platform.so
-libapu-frontend.so

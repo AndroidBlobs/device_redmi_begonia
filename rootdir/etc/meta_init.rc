@@ -3,7 +3,6 @@
 # IMPORTANT: Do not create world writable files or directories.
 # This is a common source of Android security bugs.
 #
-import /system/etc/init/hw/vendor_init_as_system.rc
 import /init.environ.rc
 import /vendor/etc/init/hw/init.aee.rc
 import /system/etc/init/hw/init.aee.rc
@@ -19,17 +18,9 @@ import /vendor/etc/init/vendor.microtrust.hardware.capi@2.0-service.rc
 import /vendor/etc/init/vendor.microtrust.hardware.thh@2.0-service.rc
 import /vendor/etc/init/microtrust.init_thh.rc
 #microtrust add end
-#copy from system/etc for APEX
-import /system/etc/init/apexd.rc
-import /system/etc/init/art_apex_boot_integrity.rc
-
-import /system/etc/init/vold.rc
-import /system/etc/init/servicemanager.rc
-import /system/etc/init/hwservicemanager.rc
-import /system/etc/init/android.hidl.allocator@1.0-service.rc
-
 #Make sure meta_init.modem.rc is the last rc file.
 import ${ro.vendor.rc}meta_init.modem.rc
+
 
 on early-init
     # Set init and its forked children's oom_adj.
@@ -45,10 +36,6 @@ on early-init
     restorecon /postinstall
 
     start ueventd
-    # Run apexd-bootstrap so that APEXes that provide critical libraries
-    # become available. Note that this is executed as exec_start to ensure that
-    # the libraries are available to the processes started after this statement.
-    exec_start apexd-bootstrap
 
 #INTERNAL_START
     mount debugfs debugfs /sys/kernel/debug
@@ -57,10 +44,6 @@ on early-init
 
 on init
     sysclktz 0
-
-    start servicemanager
-    start hwservicemanager
-    start hidl_memory
 
     # Mix device-specific information into the entropy pool
     copy /proc/cmdline /dev/urandom
@@ -189,15 +172,7 @@ on init
     write /proc/sys/net/ipv4/tcp_fwmark_accept 1
 
 #INTERNAL_START
-    mkdir /mnt/vendor/protect_f 0771 system system
-    mkdir /mnt/vendor/protect_s 0771 system system
     symlink /sdcard /mnt/sdcard
-    #Create nvdata mount point
-    mkdir /mnt/vendor/nvdata 0771 system system
-    mkdir /mnt/vendor/nvcfg 0771 system system
-
-    #Create CIP mount point
-    mkdir /custom
 
     mkdir /mnt/cd-rom 0000 system system
 #INTERNAL_END
@@ -270,10 +245,6 @@ on late-init
     trigger early-boot
     trigger boot
 
- on early-fs
-    # Once metadata has been mounted, we'll need vold to deal with userdata checkpointing
-   start vold
-
 on fs
     ## USB configfs
     mkdir /dev/usb-ffs 0770 shell shell
@@ -299,17 +270,16 @@ on fs
     write /config/usb_gadget/g1/configs/b.1/MaxPower 500
     symlink /config/usb_gadget/g1/configs/b.1 /config/usb_gadget/g1/os_desc/b.1
 
-    write /proc/bootprof "INIT:fs"
 #INTERNAL_START
     write /proc/bootprof "INIT:Mount_START"
-    wait_for_prop hwservicemanager.ready "true"
-    start vendor.boot-hal-1-0
     mount_all /vendor/etc/fstab.mt6785 ${ro.vendor.rc}multi_init.rc
     write /proc/bootprof "INIT:Mount_END"
 #INTERNAL_END
 
 on post-fs
     start logd
+    start servicemanager
+    start hwservicemanager
     start keyinstall-1-0
     start light-hal-2-0
     start vendor.boot-hal-1-0
@@ -317,6 +287,7 @@ on post-fs
     #microtrust add start
     start capi-2-0
     #microtrust add end
+    start hidl_memory
     # Once everything is setup, no need to modify /.
     # The bind+ro combination avoids modifying any other mount flags.
     # mount rootfs rootfs / remount bind ro
@@ -364,24 +335,121 @@ on post-fs
     chown system system /mnt/vendor/nvcfg
     chmod 0771 /mnt/vendor/nvcfg
     restorecon_recursive /mnt/vendor/nvcfg
-
-    chown root system /mnt/vendor/nvdata
-    chmod 0771 /mnt/vendor/nvdata
-    mkdir /mnt/vendor/nvdata/media 0771 media audio
-    restorecon_recursive /mnt/vendor/nvdata
-
 #INTERNAL_END
 
 on late-fs
     start vendor.keymaster-3-0
-    start vendor.keymaster-3-0-trustonic
-    start vendor.keymaster-4-0
-    start vendor.keymaster-4-0-trustonic
-    start vendor.keymaster-4-0-beanpod
     start keymaster_attestation-1-1
 
 on post-fs-data
-    write /proc/bootprof "INIT:post-fs-data"
+    # We chown/chmod /data again so because mount is run as root + defaults
+    chown system system /data
+    chmod 0771 /data
+    # We restorecon /data in case the userdata partition has been reset.
+    restorecon /data
+
+    # Make sure we have the device encryption key.
+    start vold
+    installkey /data
+
+    # Create directories in white list by system process, storagemanagerd
+    exec_start mk_dirs_in_list
+
+    # Start bootcharting as soon as possible after the data partition is
+    # mounted to collect more data.
+    mkdir /data/bootchart 0755 shell shell
+    bootchart start
+
+    # Avoid predictable entropy pool. Carry over entropy from previous boot.
+    copy /data/system/entropy.dat /dev/urandom
+    
+    # create basic filesystem structure
+    # We chown/chmod /mnt/vendor/nvdata again so because mount is run as root + defaults
+    chown root system /mnt/vendor/nvdata
+    chmod 0771 /mnt/vendor/nvdata
+    mkdir /mnt/vendor/nvdata/media 0771 media audio
+
+    # Set SELinux security contexts on upgrade or policy update.
+    restorecon_recursive /mnt/vendor/nvdata
+
+
+    mkdir /data/misc 01771 system misc
+    mkdir /data/misc/bluedroid 02770 bluetooth bluetooth
+    # Fix the access permissions and group ownership for 'bt_config.conf'
+    chmod 0660 /data/misc/bluedroid/bt_config.conf
+    chown bluetooth bluetooth /data/misc/bluedroid/bt_config.conf
+    mkdir /data/misc/bluetooth 0770 bluetooth bluetooth
+    mkdir /data/misc/bluetooth/logs 0770 bluetooth bluetooth
+    mkdir /data/misc/keystore 0700 keystore keystore
+    mkdir /data/misc/gatekeeper 0700 system system
+    mkdir /data/misc/keychain 0771 system system
+    mkdir /data/misc/net 0750 root shell
+    mkdir /data/misc/radio 0770 system radio
+    mkdir /data/misc/sms 0770 system radio
+    mkdir /data/misc/carrierid 0770 system radio
+    mkdir /data/misc/zoneinfo 0775 system system
+    mkdir /data/misc/network_watchlist 0774 system system
+    mkdir /data/misc/vpn 0770 system vpn
+    mkdir /data/misc/shared_relro 0771 shared_relro shared_relro
+    mkdir /data/misc/systemkeys 0700 system system
+    mkdir /data/misc/wifi 0770 wifi wifi
+    mkdir /data/misc/wifi/sockets 0770 wifi wifi
+    mkdir /data/misc/wifi/wpa_supplicant 0770 wifi wifi
+    mkdir /data/misc/ethernet 0770 system system
+    mkdir /data/misc/dhcp 0770 dhcp dhcp
+    mkdir /data/misc/user 0771 root root
+    mkdir /data/misc/perfprofd 0775 root root
+    # give system access to wpa_supplicant.conf for backup and restore
+    chmod 0660 /data/misc/wifi/wpa_supplicant.conf
+    mkdir /data/local 0751 root root
+    mkdir /data/misc/media 0700 media media
+    mkdir /data/misc/vold 0700 root root
+
+    #MDDB
+    mkdir /data/vendor/meta 0777 root root
+    mkdir /data/vendor/meta/mddb 0777 root root
+
+    # For security reasons, /data/local/tmp should always be empty.
+    # Do not place files or directories in /data/local/tmp
+    mkdir /data/local/tmp 0771 shell shell
+    mkdir /data/data 0771 system system
+    mkdir /data/property 0700 root root
+    mkdir /data/tombstones 0771 system system
+
+    # create the lost+found directories, so as to enforce our permissions
+    mkdir /data/lost+found 0770 root root
+
+
+    mkdir /data/anr 0775 system system
+
+    # Create all remaining /data root dirs so that they are made through init
+    # and get proper encryption policy installed
+    mkdir /data/backup 0700 system system
+    mkdir /data/ss 0700 system system
+
+    mkdir /data/system 0775 system system
+    mkdir /data/system/heapdump 0700 system system
+    mkdir /data/system/users 0775 system system
+
+    mkdir /data/system_de 0770 system system
+    mkdir /data/system_ce 0770 system system
+
+    mkdir /data/misc_de 01771 system misc
+    mkdir /data/misc_ce 01771 system misc
+
+    mkdir /data/user 0711 system system
+    mkdir /data/user_de 0711 system system
+    symlink /data/data /data/user/0
+
+    mkdir /data/media 0770 media_rw media_rw
+    mkdir /data/media/obb 0770 media_rw media_rw
+
+    mkdir /data/cache 0770 system cache
+    mkdir /data/cache/recovery 0770 system cache
+    mkdir /data/cache/backup_stage 0700 system system
+    mkdir /data/cache/backup 0700 system system
+
+    init_user0
 
 #INTERNAL_START
     # WiFi
@@ -404,6 +472,18 @@ on post-fs-data
 
     chmod 0666 /dev/exm0
 #INTERNAL_END
+
+    # Set SELinux security contexts on upgrade or policy update.
+    restorecon --recursive --skip-ce /data
+
+    # Check any timezone data in /data is newer than the copy in /system, delete if not.
+    exec - system system -- /system/bin/tzdatacheck /system/usr/share/zoneinfo /data/misc/zoneinfo
+
+    # If there is no post-fs-data action in the init.<device>.rc file, you
+    # must uncomment this line, otherwise encrypted filesystems
+    # won't work.
+    # Set indication (checked by vold) that we have finished this action
+    # setprop vold.post_fs_data_done 1
 
 # It is recommended to put unnecessary data/ initialization from post-fs-data
 # to start-zygote in device's init.rc to unblock zygote start.
@@ -508,8 +588,10 @@ on encrypt
     trigger post-fs-data
 on property:vendor.crypto.fake_encrypt=1 && property:vold.post_fs_data_done=1
     trigger load_persist_props_action
-    # setprop ro.crypto.state unencrypted
+    #microtrust add start
     setprop vendor.soter.teei.crypto.state unencrypted
+    #microtrust add end
+    # setprop ro.crypto.state unencrypted
     exec_start update_verifier
     class_start main
     class_start late_start
@@ -517,7 +599,7 @@ on property:vendor.crypto.fake_encrypt=1 && property:vold.post_fs_data_done=1
 
 ## Daemon processes to be run by init.
 ##
-service ueventd /system/bin/ueventd
+service ueventd /sbin/ueventd
     class core
     critical
     seclabel u:r:ueventd:s0
@@ -565,6 +647,7 @@ service loghidlsysservice /system/bin/loghidlsysservice
 
 service meta_tst /vendor/bin/meta_tst
     group radio system wifi audio bluetooth media gps
+    user radio system wifi
 
 service nvram_daemon /vendor/bin/nvram_daemon
     class main

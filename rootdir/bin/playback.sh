@@ -3,6 +3,7 @@ set -x
 #     spk: speaker
 #     rcv: receiver
 #     spk_hp: speaker high power
+#     spk_gps: speaker gps wav for WA
 
 # tinyplay file.wav [-D card] [-d device] [-p period_size] [-n n_periods]
 # sample usage: playback.sh spk
@@ -32,7 +33,7 @@ function enable_speaker
     tinymix 'I2S3_CH2 DL1_CH2' 1
     tinymix 'I2S3_HD_Mux' 'Low_Jitter'
 
-    sleep 1
+    sleep 0.5
 }
 
 function disable_speaker
@@ -49,19 +50,25 @@ if [ "$1" = "spk" ]; then
 elif [ "$1" = "spk_hp" ]; then
     enable_speaker
     filename=/vendor/etc/spk_hp.wav
+elif [ "$1" = "spk_gps" ]; then
+    enable_speaker
+    filename=/vendor/etc/spk_gps.wav
 elif [ "$1" = "rcv" ]; then
     enable_receiver
     filename=/vendor/etc/rcv.wav
 else
-    echo "Usage: playback.sh device; device: spk or spk_hp or rcv"
+    echo "Usage: playback.sh device; device: spk or spk_hp or spk_gps or rcv"
 fi
 
 echo "start playing"
 tinyplay $filename
+sleep 0.5
 
 if [ "$1" = "spk" ]; then
     disable_speaker
 elif [ "$1" = "spk_hp" ]; then
+    disable_speaker
+elif [ "$1" = "spk_gps" ]; then
     disable_speaker
 elif [ "$1" = "rcv" ]; then
     disable_receiver
