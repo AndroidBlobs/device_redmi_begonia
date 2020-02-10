@@ -500,7 +500,7 @@
          the screen brightness is recalculated. See the config_dynamicHysteresisLuxLevels
          description for how the constraint value is chosen. -->
     <integer-array name="config_dynamicHysteresisBrightLevels">
-        <item>2</item>
+        <item>5</item>
         <item>5</item>
         <item>10</item>
         <item>30</item>

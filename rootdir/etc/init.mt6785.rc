@@ -148,6 +148,7 @@ on fs
     write /proc/sys/vm/swappiness 100
     swapon_all /vendor/fstab.enableswap
     mkdir /mnt/vendor/persist/stability 0755 system system
+    mkdir /mnt/vendor/persist/misys 0755 system system
     #Audio-add
     chmod 0771 /mnt/vendor/persist/audio
 
@@ -304,7 +305,7 @@ on post-fs-data
 # -----------------------
 # Add by MTK
     # SCP log
-    chmod 0660 /sys/class/misc/scp/scp_mobile_log
+    chmod 0664 /sys/class/misc/scp/scp_mobile_log
     chown root system /sys/class/misc/scp/scp_mobile_log
     chmod 0220 /sys/class/misc/scp/scp_log_flush
     chown root system /sys/class/misc/scp/scp_log_flush
@@ -360,6 +361,9 @@ on post-fs-data
     chown root diag /sys/module/tpd_debug/parameters/tpd_em_log_to_fs
 
     chmod 0666 /dev/pmem_multimedia
+
+    #palm_sensor
+    chown system system /sys/class/touch/touch_dev/palm_sensor
 
     # set ptmx group to non-root
     chown root radio /dev/ptmx

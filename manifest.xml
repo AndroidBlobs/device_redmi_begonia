@@ -288,8 +288,10 @@
         <version>1.0</version>
         <interface>
             <name>ISecureElement</name>
+            <instance>SIM1</instance>
             <instance>eSE1</instance>
         </interface>
+        <fqname>@1.0::ISecureElement/SIM1</fqname>
         <fqname>@1.0::ISecureElement/eSE1</fqname>
     </hal>
     <hal format="hidl">
@@ -836,6 +838,16 @@
             <instance>default</instance>
         </interface>
         <fqname>@2.0::IMiSys/default</fqname>
+    </hal>
+    <hal format="hidl">
+        <name>vendor.xiaomi.hardware.misys</name>
+        <transport>hwbinder</transport>
+        <version>3.0</version>
+        <interface>
+            <name>IMiSys</name>
+            <instance>default</instance>
+        </interface>
+        <fqname>@3.0::IMiSys/default</fqname>
     </hal>
     <hal format="hidl">
         <name>vendor.xiaomi.hardware.mlipay</name>

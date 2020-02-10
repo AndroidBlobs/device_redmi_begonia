@@ -471,6 +471,7 @@ PRODUCT_PROPERTY_OVERRIDES +=  \
     ro.vendor.mtk_slow_motion_support=1 \
     ro.vendor.mtk_tee_gp_support=1 \
     ro.vendor.mtk_ufs_support=1 \
+    ro.vendor.mtk_uicc_clf=1 \
     ro.vendor.mtk_wapi_support=1 \
     ro.vendor.mtk_wappush_support=1 \
     ro.vendor.mtk_wfd_support=1 \
