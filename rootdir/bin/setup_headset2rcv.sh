@@ -1,12 +1,7 @@
 # setup headset mic to rcv
 AudioSetParam  SET_LOOPBACK_TYPE=2,1
 #index
-
-tinymix  "Headset_PGAL_GAIN"   6
-tinymix  "Headset_PGAR_GAIN"   6
-tinymix  "Handset_PGA_GAIN"    3
-tinymix  "Audio_PGA1_Setting"  3
-tinymix  "Audio_PGA2_Setting"  3
+tinymix  'Handset_PGA_GAIN'  3
 
 #INPUT DEVICE:
 #enum loopback_t {

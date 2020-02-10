@@ -12,12 +12,12 @@ PRODUCT_BRAND := redmi
 PRODUCT_DEVICE := begonia
 PRODUCT_MANUFACTURER := redmi
 PRODUCT_NAME := lineage_begonia
-PRODUCT_MODEL := begonia
+PRODUCT_MODEL := Redmi Note 8 Pro
 
 PRODUCT_GMS_CLIENTID_BASE := android-redmi
 TARGET_VENDOR := redmi
 TARGET_VENDOR_PRODUCT_NAME := begonia
-PRODUCT_BUILD_PROP_OVERRIDES += PRIVATE_BUILD_DESC="begonia-userdebug 9 PPR1.180610.011 FACTORY-BEGONIA-1101 test-keys"
+PRODUCT_BUILD_PROP_OVERRIDES += PRIVATE_BUILD_DESC="begonia-user 10 QP1A.190711.020 V11.0.1.0.QGGCNXM release-keys"
 
 # Set BUILD_FINGERPRINT variable to be picked up by both system and vendor build.prop
-BUILD_FINGERPRINT := Redmi/begonia/begonia:9/PPR1.180610.011/FACTORY-BEGONIA-1101:userdebug/test-keys
+BUILD_FINGERPRINT := Redmi/begonia/begonia:10/QP1A.190711.020/V11.0.1.0.QGGCNXM:user/release-keys

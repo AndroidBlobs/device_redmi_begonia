@@ -1,16 +1,24 @@
 # MTK project .rc configure
 
 import init.mi_thermald.rc
+import init.mishow.ctl.rc
 
 on init
     mkdir /mnt/media_rw/usbotg 0700 media_rw media_rw
     mkdir /storage/usbotg 0700 root root
 
 on post-fs-data
-mkdir /data/vendor/nfc 0770 nfc nfc
-mkdir /data/vendor/secure_element 0770 nfc nfc
-mkdir /data/vendor/thermal 0771 root system
-mkdir /data/vendor/thermal/config 0771 root system
+    mkdir /data/vendor/nfc 0770 nfc nfc
+    mkdir /data/vendor/secure_element 0770 nfc nfc
+    mkdir /data/vendor/thermal 0771 root system
+    mkdir /data/vendor/thermal/config 0771 root system
+    #Audio-add:Create directory used by audio cit
+    mkdir /data/vendor/cit 0770 system system
+    #thermal
+    chown system system /sys/class/thermal/thermal_message/sconfig
+    #mishow
+    chmod 0777 /sys/class/power_supply/battery/input_suspend
+    chown root root /sys/class/power_supply/battery/input_suspend
 
 #Camera
     chmod 0660 /dev/MAINAF
@@ -35,16 +43,28 @@ mkdir /data/vendor/thermal/config 0771 root system
     chown system camera /dev/BU64745GWZAF
 
 #SMB
+    chmod 0660 /dev/nq-nci
+    chown nfc nfc /dev/nq-nci
+    chmod 0660 /dev/p73
+    chown nfc nfc /dev/p73
+
     chown system system /proc/smb/ScreenComm
     chmod 0660 /proc/smb/ScreenComm
 
     chmod 0660 /dev/spm
     chown system system /dev/spm
 
-    chmod 0660 /dev/nq-nci
-    chown nfc nfc /dev/nq-nci
-    chmod 0660 /dev/p73
-    chown nfc nfc /dev/p73
+#Audio TFA 98xx
+    chown system system /dev/tfa_reg
+    chown system system /dev/tfa_rw
+    chown system system /dev/tfa_rpc
+    chown system system /dev/tfa_control
+    chown system system /dev/tfa_profile
+    chmod 0660 /dev/tfa_reg
+    chmod 0660 /dev/tfa_rw
+    chmod 0660 /dev/tfa_rpc
+    chmod 0660 /dev/tfa_control
+    chmod 0660 /dev/tfa_profile
 
 on init
     # Refer to http://source.android.com/devices/tech/storage/index.html
@@ -56,9 +76,11 @@ on init
     #
     # export SECONDARY_STORAGE /storage/sdcard1
 
-    chmod 0666 /sys/kernel/debug/mtk_rtc/mtk_rtc
-    chmod 0666 /sys/devices/platform/battery/ntc_disable_nafg
-    chmod 0666 /sys/power/spm/suspend_ctrl
+chown system system /proc/tp_selftest
+
+#torch_light
+chown system system /sys/devices/platform/flashlights_mt6360/leds/torch-light0/brightness
+chown system system /sys/devices/platform/flashlights_mt6360/leds/torch-light1/brightness
 
 service fuse_usbotg /system/bin/sdcard -u 1023 -g 1023 -w 1023 -d /mnt/media_rw/usbotg /storage/usbotg
     class late_start
@@ -83,11 +105,7 @@ on property:init.svc.surfaceflinger=running
 on property:init.svc.surfaceflinger=restarting
     stop displayfeature
 
-/*for ufs_ffu tool
- *
- * check the current fw version everytime.
- */
-service ufs_ffu_service /system/vendor/bin/sh /system/bin/ufs_ffu_tool.sh
-    class core
-    user root
-    oneshot
+#spkcal cit
+on property:vendor.audio.cit.spkcal.copy=true
+    copy /data/vendor/cit/tfa9874_chk.txt /mnt/vendor/persist/audio/tfa9874_chk.txt
+    chmod 666 /mnt/vendor/persist/audio/tfa9874_chk.txt

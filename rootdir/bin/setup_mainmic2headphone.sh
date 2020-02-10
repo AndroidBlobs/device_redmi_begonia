@@ -1,13 +1,7 @@
 # setup main mic to headhone
 AudioSetParam  SET_LOOPBACK_TYPE=1,2
-
-tinymix  "Headset_PGAL_GAIN"   6
-tinymix  "Headset_PGAR_GAIN"   6
-tinymix  "Handset_PGA_GAIN"    3
-tinymix  "Audio_PGA1_Setting"  3
-tinymix  "Audio_PGA2_Setting"  3
-
-
+#tinymix Headset_PGAL_GAIN 2
+#tinymix Headset_PGAR_GAIN 2
 #INPUT DEVICE:
 #enum loopback_t {
 #
