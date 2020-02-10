@@ -46,6 +46,11 @@ service wmt_launcher /vendor/bin/wmt_launcher -p /vendor/firmware/
 #    group gps system radio
 #    class main
 
+service wlan_assistant /vendor/bin/wlan_assistant
+    class main
+    user wifi
+    group system gps inet
+
 #
 # Connectivity related services (End)
 #

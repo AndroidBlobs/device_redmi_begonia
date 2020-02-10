@@ -850,13 +850,15 @@ on property:sys.usb.config=cdp && property:sys.usb.configfs=1
     setprop vendor.usb.pid 0x2008
 
 on property:sys.usb.config=charging_yes
+    setprop vendor.usb.state ${sys.usb.state}
     setprop vendor.usb.charging yes
     setprop sys.usb.config none
-    setprop sys.usb.config ${sys.usb.state}
+    setprop sys.usb.config ${vendor.usb.state}
 
 on property:sys.usb.config=charging_no
+    setprop vendor.usb.state ${sys.usb.state}
     setprop sys.usb.config none
-    setprop sys.usb.config ${sys.usb.state}
+    setprop sys.usb.config ${vendor.usb.state}
     setprop vendor.usb.charging no
 
 on property:vendor.usb.charging=yes

@@ -1,6 +1,6 @@
 on post-fs-data
-    mkdir /data/vendor/mtklog 0777 root root
-    mkdir /data/vendor/mtklog/aee_exp 0775 root root
+
+    mkdir /data/vendor/aee_exp 0775 root root
     mkdir /data/vendor/dumpsys 0775 system system
     mkdir /data/vendor/core 0775 system system
     mkdir /data/vendor/tombstones 0775 system system
@@ -8,3 +8,10 @@ on post-fs-data
 on post-fs
     start aee_aedv
     start aee_aedv64
+
+# This is required by mtk, which is used for debug usage before release in device
+#   1. enhance coredump on userload
+#   2. allow switch aee mode from 4 to 3
+on init
+    setprop persist.vendor.aeev.core.dump enable
+    setprop ro.vendor.aee.enforcing no
